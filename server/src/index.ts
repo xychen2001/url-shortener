@@ -20,9 +20,8 @@ app.get("/health", async (_req, res) => {
   }
 });
 
+//TODO - serve 404 not found page
 app.get("/:shortCode", async (req, res) => {
-  //TODO - return originalUrl based on shortCode
-
   const { shortCode } = req.params;
   try {
     const url = await prisma.url.findUnique({
@@ -35,10 +34,7 @@ app.get("/:shortCode", async (req, res) => {
       return res.status(404).json({ error: "No matching url found" });
     }
 
-    //TODO: possibly add redirect here
-    return res.status(200).json({
-      originalUrl: url.originalUrl,
-    });
+    return res.redirect(302, url.originalUrl);
   } catch (error) {
     return res.status(500).json({ error: "Internal server error" });
   }
