@@ -21,6 +21,7 @@ app.get("/health", async (_req, res) => {
 });
 
 //TODO - serve 404 not found page
+//TODO - allow user to decide shortCode
 app.get("/:shortCode", async (req, res) => {
   const { shortCode } = req.params;
   try {
