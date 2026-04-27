@@ -9,7 +9,10 @@ const shortenBodySchema = z.object({
   originalUrl: z
     .string()
     .min(1, "originalUrl is required")
-    .max(MAX_URL_LENGTH, `originalUrl must be at most ${MAX_URL_LENGTH} characters`)
+    .max(
+      MAX_URL_LENGTH,
+      `originalUrl must be at most ${MAX_URL_LENGTH} characters`,
+    )
     .refine((value) => {
       try {
         const url = new URL(value);
