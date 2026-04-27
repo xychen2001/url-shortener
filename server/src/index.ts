@@ -1,14 +1,13 @@
 import express from "express";
-import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import cors from "cors";
 import morgan from "morgan";
-import * as shortCodeGeneratorHelper from "./shortcode-generator.helper";
+import * as urlController from "./url.controller";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MAX_SHORTCODE_ATTEMPTS = 3;
 
+// TODO: change origin to use .env
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
 app.use(morgan("dev"));
@@ -24,61 +23,9 @@ app.get("/health", async (_req, res) => {
 
 //TODO - serve 404 not found page
 //TODO - allow user to decide shortCode
-app.get("/:shortCode", async (req, res) => {
-  const { shortCode } = req.params;
-  try {
-    const url = await prisma.url.findUnique({
-      where: {
-        shortCode,
-      },
-    });
+app.get("/:shortCode", urlController.handleRedirect);
 
-    if (!url) {
-      return res.status(404).json({ error: "No matching url found" });
-    }
-
-    return res.redirect(302, url.originalUrl);
-  } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-app.post("/shorten", async (req, res) => {
-  // TODO: Add controller that wraps validation and service
-
-  const { originalUrl } = req.body;
-
-  // Retry handles shortCode collisions
-  for (let attempt = 0; attempt < MAX_SHORTCODE_ATTEMPTS; attempt++) {
-    const shortCode = shortCodeGeneratorHelper.generateShortCode();
-
-    try {
-      //TODO: make originalUrl unique field by using upsert
-      const entry = await prisma.url.create({
-        data: {
-          shortCode,
-          originalUrl,
-        },
-      });
-
-      return res.status(201).json({
-        shortCode: entry.shortCode,
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
-        continue;
-      }
-      return res.status(500).json({ error: "Failed to create short URL" });
-    }
-  }
-
-  return res.status(500).json({
-    error: "Could not allocate a unique short code, please retry",
-  });
-});
+app.post("/shorten", urlController.handleShorten);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
