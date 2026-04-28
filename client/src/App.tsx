@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +17,16 @@ export const App = () => {
   const [shortUrl, setShortUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notFoundCode] = useState(() =>
+    new URLSearchParams(window.location.search).get("notFound"),
+  );
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (notFoundCode) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [notFoundCode]);
 
   const shortenUrl = async () => {
     setLoading(true);
@@ -63,6 +72,11 @@ export const App = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {notFoundCode && (
+            <p className="text-sm text-destructive rounded-md border border-destructive/40 p-2">
+              Short URL "{notFoundCode}" was not found.
+            </p>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();

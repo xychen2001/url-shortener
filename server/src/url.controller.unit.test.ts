@@ -63,7 +63,7 @@ describe("handleRedirect", () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when no matching url exists", async () => {
+  it("redirects to the frontend not-found page when no matching url exists", async () => {
     getOriginalUrl.mockResolvedValueOnce(null);
     const req = { params: { shortCode: "abcd1234" } } as unknown as Request<{
       shortCode: string;
@@ -72,11 +72,14 @@ describe("handleRedirect", () => {
 
     await handleRedirect(req, res as unknown as Response);
 
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ error: "No matching url found" });
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      "http://localhost:5173/?notFound=abcd1234",
+    );
+    expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when shortCode params fail validation", async () => {
+  it("redirects to the frontend not-found page when shortCode params fail validation", async () => {
     const req = { params: { shortCode: "ba" } } as unknown as Request<{
       shortCode: string;
     }>;
@@ -85,10 +88,25 @@ describe("handleRedirect", () => {
     await handleRedirect(req, res as unknown as Response);
 
     expect(getOriginalUrl).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(400);
-    const body = res.json.mock.calls[0]?.[0];
-    expect(body.error).toBe("Invalid short code");
-    expect(Array.isArray(body.issues)).toBe(true);
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      "http://localhost:5173/?notFound=ba",
+    );
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("URL-encodes the attempted code in the not-found redirect", async () => {
+    const req = { params: { shortCode: "bad code!" } } as unknown as Request<{
+      shortCode: string;
+    }>;
+    const res = makeRes();
+
+    await handleRedirect(req, res as unknown as Response);
+
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      "http://localhost:5173/?notFound=bad%20code!",
+    );
   });
 
   it("returns 500 when the service throws an unknown error", async () => {

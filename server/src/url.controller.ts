@@ -4,6 +4,14 @@ import * as urlService from "./url.service";
 import { AliasTakenError } from "./url.service";
 import * as urlValidator from "./url.validator";
 
+// TODO: move to .env (matches the CORS origin in index.ts)
+const FRONTEND_BASE = "http://localhost:5173";
+
+function notFoundRedirect(res: Response, attemptedCode: string) {
+  const url = `${FRONTEND_BASE}/?notFound=${encodeURIComponent(attemptedCode)}`;
+  return res.redirect(302, url);
+}
+
 export async function handleRedirect(
   req: Request<{ shortCode: string }>,
   res: Response,
@@ -13,16 +21,13 @@ export async function handleRedirect(
     const url = await urlService.getOriginalUrl(shortCode);
 
     if (!url) {
-      return res.status(404).json({ error: "No matching url found" });
+      return notFoundRedirect(res, shortCode);
     }
 
     return res.redirect(302, url.originalUrl);
   } catch (error) {
     if (error instanceof ZodError) {
-      return res.status(400).json({
-        error: "Invalid short code",
-        issues: error.issues,
-      });
+      return notFoundRedirect(res, req.params.shortCode);
     }
     return res.status(500).json({ error: "Internal server error" });
   }
