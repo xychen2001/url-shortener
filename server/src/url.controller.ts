@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { ZodError } from "zod";
 import * as urlService from "./url.service";
+import { AliasTakenError } from "./url.service";
 import * as urlValidator from "./url.validator";
 
 export async function handleRedirect(
@@ -29,8 +30,10 @@ export async function handleRedirect(
 
 export async function handleShorten(req: Request, res: Response) {
   try {
-    const { originalUrl } = urlValidator.parseShortenBody(req.body);
-    const entry = await urlService.createShortUrl(originalUrl);
+    const { originalUrl, customAlias } = urlValidator.parseShortenBody(
+      req.body,
+    );
+    const entry = await urlService.createShortUrl(originalUrl, customAlias);
     if (!entry) {
       return res.status(500).json({
         error: "Could not allocate a unique short code, please retry",
@@ -43,6 +46,9 @@ export async function handleShorten(req: Request, res: Response) {
         error: "Invalid request body",
         issues: error.issues,
       });
+    }
+    if (error instanceof AliasTakenError) {
+      return res.status(409).json({ error: "Alias already taken" });
     }
     return res.status(500).json({ error: "Failed to create short URL" });
   }

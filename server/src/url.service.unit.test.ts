@@ -15,7 +15,9 @@ mock.module("./db", () => ({
 }));
 mock.module("./shortcode.helper", () => ({ generateShortCode }));
 
-const { getOriginalUrl, createShortUrl } = await import("./url.service");
+const { getOriginalUrl, createShortUrl, AliasTakenError } = await import(
+  "./url.service"
+);
 
 function makeCollisionError() {
   return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
@@ -123,5 +125,41 @@ describe("createShortUrl", () => {
     expect(createShortUrl("https://example.com")).rejects.toThrow(
       "connection refused",
     );
+  });
+
+  it("inserts with the supplied customAlias and skips the generator", async () => {
+    const entry = {
+      id: 3,
+      shortCode: "myLink",
+      originalUrl: "https://example.com",
+      createdAt: new Date(),
+    };
+    create.mockResolvedValueOnce(entry);
+
+    const result = await createShortUrl("https://example.com", "myLink");
+
+    expect(result).toEqual(entry);
+    expect(generateShortCode).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith({
+      data: { shortCode: "myLink", originalUrl: "https://example.com" },
+    });
+  });
+
+  it("throws AliasTakenError on a P2002 collision when a customAlias is supplied (no retry)", async () => {
+    create.mockRejectedValueOnce(makeCollisionError());
+
+    expect(
+      createShortUrl("https://example.com", "myLink"),
+    ).rejects.toBeInstanceOf(AliasTakenError);
+    expect(generateShortCode).not.toHaveBeenCalled();
+  });
+
+  it("rethrows non-collision errors when a customAlias is supplied", async () => {
+    create.mockRejectedValueOnce(new Error("connection refused"));
+
+    expect(
+      createShortUrl("https://example.com", "myLink"),
+    ).rejects.toThrow("connection refused");
   });
 });

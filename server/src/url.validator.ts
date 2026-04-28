@@ -2,8 +2,21 @@ import { z } from "zod";
 
 const HTTP_PROTOCOLS = new Set(["http:", "https:"]);
 const MAX_URL_LENGTH = 2048;
-// Matches shortcode.helper.ts: 8 chars from base62 [0-9A-Za-z]
-const SHORTCODE_PATTERN = /^[0-9A-Za-z]{8}$/;
+// Auto-generated 8-char codes (shortcode.helper.ts) and user-chosen aliases
+// both live in the `shortCode` column and share this base62 3-16 range.
+const SHORTCODE_PATTERN = /^[0-9A-Za-z]{3,16}$/;
+const RESERVED_ALIASES = new Set([
+  "health",
+  "shorten",
+  "api",
+  "admin",
+  "login",
+  "signup",
+  "app",
+  "static",
+  "assets",
+  "public",
+]);
 
 const shortenBodySchema = z.object({
   originalUrl: z
@@ -21,6 +34,14 @@ const shortenBodySchema = z.object({
         return false;
       }
     }, "originalUrl must be a valid http(s) URL"),
+  customAlias: z
+    .string()
+    .regex(
+      SHORTCODE_PATTERN,
+      "customAlias must be 3-16 alphanumeric characters",
+    )
+    .refine((value) => !RESERVED_ALIASES.has(value), "customAlias is reserved")
+    .optional(),
 });
 
 export type TShortenBody = z.infer<typeof shortenBodySchema>;
@@ -32,7 +53,10 @@ export function parseShortenBody(body: unknown): TShortenBody {
 const redirectParamsSchema = z.object({
   shortCode: z
     .string()
-    .regex(SHORTCODE_PATTERN, "shortCode must be 8 alphanumeric characters"),
+    .regex(
+      SHORTCODE_PATTERN,
+      "shortCode must be 3-16 alphanumeric characters",
+    ),
 });
 
 export type TRedirectParams = z.infer<typeof redirectParamsSchema>;

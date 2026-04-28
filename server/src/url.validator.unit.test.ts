@@ -38,23 +38,87 @@ describe("parseShortenBody", () => {
   it("throws when originalUrl is missing", () => {
     expect(() => parseShortenBody({})).toThrow(ZodError);
   });
+
+  it("accepts a valid customAlias", () => {
+    expect(
+      parseShortenBody({
+        originalUrl: "https://example.com",
+        customAlias: "myLink",
+      }),
+    ).toEqual({
+      originalUrl: "https://example.com",
+      customAlias: "myLink",
+    });
+  });
+
+  it("accepts a body without customAlias", () => {
+    expect(parseShortenBody({ originalUrl: "https://example.com" })).toEqual({
+      originalUrl: "https://example.com",
+    });
+  });
+
+  it("throws when customAlias is shorter than 3 characters", () => {
+    expect(() =>
+      parseShortenBody({
+        originalUrl: "https://example.com",
+        customAlias: "ab",
+      }),
+    ).toThrow(ZodError);
+  });
+
+  it("throws when customAlias is longer than 16 characters", () => {
+    expect(() =>
+      parseShortenBody({
+        originalUrl: "https://example.com",
+        customAlias: "a".repeat(17),
+      }),
+    ).toThrow(ZodError);
+  });
+
+  it("throws when customAlias contains non-base62 characters", () => {
+    expect(() =>
+      parseShortenBody({
+        originalUrl: "https://example.com",
+        customAlias: "my-link",
+      }),
+    ).toThrow(ZodError);
+  });
+
+  it("throws when customAlias is a reserved word", () => {
+    expect(() =>
+      parseShortenBody({
+        originalUrl: "https://example.com",
+        customAlias: "admin",
+      }),
+    ).toThrow(ZodError);
+  });
 });
 
 describe("parseRedirectParams", () => {
-  it("accepts an 8-character alphanumeric shortCode", () => {
+  it("accepts an 8-character auto-generated shortCode", () => {
     expect(parseRedirectParams({ shortCode: "aB3dE9fG" })).toEqual({
       shortCode: "aB3dE9fG",
     });
   });
 
-  it("throws on a 7-character shortCode", () => {
-    expect(() => parseRedirectParams({ shortCode: "abcdefg" })).toThrow(
-      ZodError,
-    );
+  it("accepts a custom alias shorter than 8 characters", () => {
+    expect(parseRedirectParams({ shortCode: "myLink" })).toEqual({
+      shortCode: "myLink",
+    });
   });
 
-  it("throws on a 9-character shortCode", () => {
-    expect(() => parseRedirectParams({ shortCode: "abcdefghi" })).toThrow(
+  it("accepts a custom alias longer than 8 characters", () => {
+    expect(parseRedirectParams({ shortCode: "myReallyLongOne" })).toEqual({
+      shortCode: "myReallyLongOne",
+    });
+  });
+
+  it("throws on a 2-character shortCode", () => {
+    expect(() => parseRedirectParams({ shortCode: "ab" })).toThrow(ZodError);
+  });
+
+  it("throws on a 17-character shortCode", () => {
+    expect(() => parseRedirectParams({ shortCode: "a".repeat(17) })).toThrow(
       ZodError,
     );
   });

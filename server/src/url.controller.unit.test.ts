@@ -1,13 +1,18 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { Request, Response } from "express";
 import * as urlServiceModule from "./url.service";
+import { AliasTakenError } from "./url.service";
 
 const realUrlServiceExports = { ...urlServiceModule };
 
 const getOriginalUrl = mock();
 const createShortUrl = mock();
 
-mock.module("./url.service", () => ({ getOriginalUrl, createShortUrl }));
+mock.module("./url.service", () => ({
+  getOriginalUrl,
+  createShortUrl,
+  AliasTakenError,
+}));
 
 const { handleRedirect, handleShorten } = await import("./url.controller");
 
@@ -72,7 +77,7 @@ describe("handleRedirect", () => {
   });
 
   it("returns 400 when shortCode params fail validation", async () => {
-    const req = { params: { shortCode: "bad" } } as unknown as Request<{
+    const req = { params: { shortCode: "ba" } } as unknown as Request<{
       shortCode: string;
     }>;
     const res = makeRes();
@@ -116,7 +121,10 @@ describe("handleShorten", () => {
 
     await handleShorten(req, res as unknown as Response);
 
-    expect(createShortUrl).toHaveBeenCalledWith("https://example.com");
+    expect(createShortUrl).toHaveBeenCalledWith(
+      "https://example.com",
+      undefined,
+    );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ shortCode: "code0001" });
   });
@@ -162,5 +170,68 @@ describe("handleShorten", () => {
     expect(res.json).toHaveBeenCalledWith({
       error: "Failed to create short URL",
     });
+  });
+
+  it("forwards a customAlias to the service and returns 201 with that shortCode", async () => {
+    const entry = {
+      id: 4,
+      shortCode: "myLink",
+      originalUrl: "https://example.com",
+      createdAt: new Date(),
+    };
+    createShortUrl.mockResolvedValueOnce(entry);
+    const req = {
+      body: { originalUrl: "https://example.com", customAlias: "myLink" },
+    } as unknown as Request;
+    const res = makeRes();
+
+    await handleShorten(req, res as unknown as Response);
+
+    expect(createShortUrl).toHaveBeenCalledWith(
+      "https://example.com",
+      "myLink",
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ shortCode: "myLink" });
+  });
+
+  it("returns 409 when the service throws AliasTakenError", async () => {
+    createShortUrl.mockRejectedValueOnce(new AliasTakenError("myLink"));
+    const req = {
+      body: { originalUrl: "https://example.com", customAlias: "myLink" },
+    } as unknown as Request;
+    const res = makeRes();
+
+    await handleShorten(req, res as unknown as Response);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ error: "Alias already taken" });
+  });
+
+  it("returns 400 when the customAlias is reserved", async () => {
+    const req = {
+      body: { originalUrl: "https://example.com", customAlias: "admin" },
+    } as unknown as Request;
+    const res = makeRes();
+
+    await handleShorten(req, res as unknown as Response);
+
+    expect(createShortUrl).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    const body = res.json.mock.calls[0]?.[0];
+    expect(body.error).toBe("Invalid request body");
+    expect(Array.isArray(body.issues)).toBe(true);
+  });
+
+  it("returns 400 when the customAlias has invalid characters", async () => {
+    const req = {
+      body: { originalUrl: "https://example.com", customAlias: "my-link" },
+    } as unknown as Request;
+    const res = makeRes();
+
+    await handleShorten(req, res as unknown as Response);
+
+    expect(createShortUrl).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 });

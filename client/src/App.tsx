@@ -13,6 +13,7 @@ const API_BASE = "http://localhost:3000";
 
 export const App = () => {
   const [originalUrl, setOriginalUrl] = useState("");
+  const [customAlias, setCustomAlias] = useState("");
   const [shortUrl, setShortUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,10 @@ export const App = () => {
       const res = await fetch(`${API_BASE}/shorten`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ originalUrl }),
+        body: JSON.stringify({
+          originalUrl,
+          customAlias: customAlias || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -64,7 +68,7 @@ export const App = () => {
               e.preventDefault();
               shortenUrl();
             }}
-            className="flex gap-2"
+            className="flex flex-col gap-2"
           >
             <Input
               type="url"
@@ -72,6 +76,13 @@ export const App = () => {
               placeholder="https://example.com/very/long/url"
               value={originalUrl}
               onChange={(e) => setOriginalUrl(e.target.value)}
+              disabled={loading}
+            />
+            <Input
+              type="text"
+              placeholder="custom alias (optional, 3-16 alphanumeric)"
+              value={customAlias}
+              onChange={(e) => setCustomAlias(e.target.value)}
               disabled={loading}
             />
             <Button type="submit" disabled={loading}>
