@@ -23,6 +23,7 @@
     "@prisma/client": "^6",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "ioredis": "^5.10.1",
     "morgan": "^1.10.1",
     "nanoid": "^5.1.9",
     "prom-client": "^15.1.3",
