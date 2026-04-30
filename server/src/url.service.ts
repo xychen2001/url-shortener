@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './db'
+import { dbQueries } from './metrics'
 import * as shortCodeHelper from './shortcode.helper'
 
 const MAX_SHORTCODE_ATTEMPTS = 3
@@ -16,6 +17,7 @@ function isUniqueConstraintError(error: unknown) {
 }
 
 export async function getOriginalUrl(shortCode: string) {
+  dbQueries.inc({ op: 'find' })
   return prisma.url.findUnique({
     where: { shortCode },
   })
@@ -30,6 +32,7 @@ export async function createShortUrl(originalUrl: string, customAlias?: string) 
 
 async function createWithAlias(originalUrl: string, alias: string) {
   try {
+    dbQueries.inc({ op: 'create' })
     return await prisma.url.create({
       data: { shortCode: alias, originalUrl },
     })
@@ -46,6 +49,7 @@ async function createWithGeneratedCode(originalUrl: string) {
     const shortCode = shortCodeHelper.generateShortCode()
 
     try {
+      dbQueries.inc({ op: 'create' })
       const entry = await prisma.url.create({
         data: { shortCode, originalUrl },
       })

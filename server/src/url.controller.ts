@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import { ZodError } from 'zod'
+import { redirectLatency } from './metrics'
 import * as urlService from './url.service'
 import { AliasTakenError } from './url.service'
 import * as urlValidator from './url.validator'
@@ -13,6 +14,7 @@ function notFoundRedirect(res: Response, attemptedCode: string) {
 }
 
 export async function handleRedirect(req: Request<{ shortCode: string }>, res: Response) {
+  const endTimer = redirectLatency.startTimer()
   try {
     const { shortCode } = urlValidator.parseRedirectParams(req.params)
     const url = await urlService.getOriginalUrl(shortCode)
@@ -27,6 +29,8 @@ export async function handleRedirect(req: Request<{ shortCode: string }>, res: R
       return notFoundRedirect(res, req.params.shortCode)
     }
     return res.status(500).json({ error: 'Internal server error' })
+  } finally {
+    endTimer()
   }
 }
 

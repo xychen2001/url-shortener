@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: shortener-api
+    static_configs:
+      # API runs on the host (not in docker). host.docker.internal resolves
+      # to the host machine from inside the prometheus container.
+      - targets: ["host.docker.internal:9090"]
