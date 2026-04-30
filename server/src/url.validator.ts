@@ -2,8 +2,9 @@ import { z } from "zod";
 
 const HTTP_PROTOCOLS = new Set(["http:", "https:"]);
 const MAX_URL_LENGTH = 2048;
-// Auto-generated 8-char codes (shortcode.helper.ts) and user-chosen aliases
-// both live in the `shortCode` column and share this base62 3-16 range.
+// shortCode column holds two semantically different things
+//   - Auto-generated codes (shortcode.helper.ts): always 8 chars.
+//   - User-chosen aliases: 3-16 chars at user discretion. Short aliases are guessable; users who pick short aliases should be opting into a public URL
 const SHORTCODE_PATTERN = /^[0-9A-Za-z]{3,16}$/;
 const RESERVED_ALIASES = new Set([
   "health",
@@ -53,10 +54,7 @@ export function parseShortenBody(body: unknown): TShortenBody {
 const redirectParamsSchema = z.object({
   shortCode: z
     .string()
-    .regex(
-      SHORTCODE_PATTERN,
-      "shortCode must be 3-16 alphanumeric characters",
-    ),
+    .regex(SHORTCODE_PATTERN, "shortCode must be 3-16 alphanumeric characters"),
 });
 
 export type TRedirectParams = z.infer<typeof redirectParamsSchema>;
