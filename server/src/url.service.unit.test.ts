@@ -1,165 +1,153 @@
-import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
-import { Prisma } from "@prisma/client";
-import * as dbModule from "./db";
-import * as shortCodeHelperModule from "./shortcode.helper";
+import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { Prisma } from '@prisma/client'
+import * as dbModule from './db'
+import * as shortCodeHelperModule from './shortcode.helper'
 
-const realDbExports = { ...dbModule };
-const realHelperExports = { ...shortCodeHelperModule };
+const realDbExports = { ...dbModule }
+const realHelperExports = { ...shortCodeHelperModule }
 
-const findUnique = mock();
-const create = mock();
-const generateShortCode = mock();
+const findUnique = mock()
+const create = mock()
+const generateShortCode = mock()
 
-mock.module("./db", () => ({
+mock.module('./db', () => ({
   prisma: { url: { findUnique, create } },
-}));
-mock.module("./shortcode.helper", () => ({ generateShortCode }));
+}))
+mock.module('./shortcode.helper', () => ({ generateShortCode }))
 
-const { getOriginalUrl, createShortUrl, AliasTakenError } = await import(
-  "./url.service"
-);
+const { getOriginalUrl, createShortUrl, AliasTakenError } = await import('./url.service')
 
 function makeCollisionError() {
-  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
-    code: "P2002",
-    clientVersion: "test",
-  });
+  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+  })
 }
 
 beforeEach(() => {
-  findUnique.mockReset();
-  create.mockReset();
-  generateShortCode.mockReset();
-});
+  findUnique.mockReset()
+  create.mockReset()
+  generateShortCode.mockReset()
+})
 
 afterAll(() => {
-  mock.module("./db", () => realDbExports);
-  mock.module("./shortcode.helper", () => realHelperExports);
-});
+  mock.module('./db', () => realDbExports)
+  mock.module('./shortcode.helper', () => realHelperExports)
+})
 
-describe("getOriginalUrl", () => {
-  it("queries Prisma by shortCode and returns the row", async () => {
+describe('getOriginalUrl', () => {
+  it('queries Prisma by shortCode and returns the row', async () => {
     const row = {
       id: 1,
-      shortCode: "abcd1234",
-      originalUrl: "https://example.com",
+      shortCode: 'abcd1234',
+      originalUrl: 'https://example.com',
       createdAt: new Date(),
-    };
-    findUnique.mockResolvedValueOnce(row);
+    }
+    findUnique.mockResolvedValueOnce(row)
 
-    const result = await getOriginalUrl("abcd1234");
+    const result = await getOriginalUrl('abcd1234')
 
-    expect(findUnique).toHaveBeenCalledWith({ where: { shortCode: "abcd1234" } });
-    expect(result).toEqual(row);
-  });
+    expect(findUnique).toHaveBeenCalledWith({ where: { shortCode: 'abcd1234' } })
+    expect(result).toEqual(row)
+  })
 
-  it("returns null when no row is found", async () => {
-    findUnique.mockResolvedValueOnce(null);
-    expect(await getOriginalUrl("abcd1234")).toBeNull();
-  });
-});
+  it('returns null when no row is found', async () => {
+    findUnique.mockResolvedValueOnce(null)
+    expect(await getOriginalUrl('abcd1234')).toBeNull()
+  })
+})
 
-describe("createShortUrl", () => {
-  it("returns the entry on the first successful create", async () => {
+describe('createShortUrl', () => {
+  it('returns the entry on the first successful create', async () => {
     const entry = {
       id: 1,
-      shortCode: "code0001",
-      originalUrl: "https://example.com",
+      shortCode: 'code0001',
+      originalUrl: 'https://example.com',
       createdAt: new Date(),
-    };
-    generateShortCode.mockReturnValueOnce("code0001");
-    create.mockResolvedValueOnce(entry);
+    }
+    generateShortCode.mockReturnValueOnce('code0001')
+    create.mockResolvedValueOnce(entry)
 
-    const result = await createShortUrl("https://example.com");
+    const result = await createShortUrl('https://example.com')
 
-    expect(result).toEqual(entry);
-    expect(generateShortCode).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(entry)
+    expect(generateShortCode).toHaveBeenCalledTimes(1)
+    expect(create).toHaveBeenCalledTimes(1)
     expect(create).toHaveBeenCalledWith({
-      data: { shortCode: "code0001", originalUrl: "https://example.com" },
-    });
-  });
+      data: { shortCode: 'code0001', originalUrl: 'https://example.com' },
+    })
+  })
 
-  it("retries on a P2002 collision and succeeds on the next attempt", async () => {
+  it('retries on a P2002 collision and succeeds on the next attempt', async () => {
     const entry = {
       id: 2,
-      shortCode: "code0002",
-      originalUrl: "https://example.com",
+      shortCode: 'code0002',
+      originalUrl: 'https://example.com',
       createdAt: new Date(),
-    };
+    }
+    generateShortCode.mockReturnValueOnce('code0001').mockReturnValueOnce('code0002')
+    create.mockRejectedValueOnce(makeCollisionError()).mockResolvedValueOnce(entry)
+
+    const result = await createShortUrl('https://example.com')
+
+    expect(result).toEqual(entry)
+    expect(generateShortCode).toHaveBeenCalledTimes(2)
+    expect(create).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns null after MAX_SHORTCODE_ATTEMPTS consecutive collisions', async () => {
     generateShortCode
-      .mockReturnValueOnce("code0001")
-      .mockReturnValueOnce("code0002");
-    create
-      .mockRejectedValueOnce(makeCollisionError())
-      .mockResolvedValueOnce(entry);
-
-    const result = await createShortUrl("https://example.com");
-
-    expect(result).toEqual(entry);
-    expect(generateShortCode).toHaveBeenCalledTimes(2);
-    expect(create).toHaveBeenCalledTimes(2);
-  });
-
-  it("returns null after MAX_SHORTCODE_ATTEMPTS consecutive collisions", async () => {
-    generateShortCode
-      .mockReturnValueOnce("code0001")
-      .mockReturnValueOnce("code0002")
-      .mockReturnValueOnce("code0003");
+      .mockReturnValueOnce('code0001')
+      .mockReturnValueOnce('code0002')
+      .mockReturnValueOnce('code0003')
     create
       .mockRejectedValueOnce(makeCollisionError())
       .mockRejectedValueOnce(makeCollisionError())
-      .mockRejectedValueOnce(makeCollisionError());
+      .mockRejectedValueOnce(makeCollisionError())
 
-    const result = await createShortUrl("https://example.com");
+    const result = await createShortUrl('https://example.com')
 
-    expect(result).toBeNull();
-    expect(generateShortCode).toHaveBeenCalledTimes(3);
-    expect(create).toHaveBeenCalledTimes(3);
-  });
+    expect(result).toBeNull()
+    expect(generateShortCode).toHaveBeenCalledTimes(3)
+    expect(create).toHaveBeenCalledTimes(3)
+  })
 
-  it("rethrows non-collision errors", async () => {
-    generateShortCode.mockReturnValueOnce("code0001");
-    create.mockRejectedValueOnce(new Error("connection refused"));
+  it('rethrows non-collision errors', async () => {
+    generateShortCode.mockReturnValueOnce('code0001')
+    create.mockRejectedValueOnce(new Error('connection refused'))
 
-    expect(createShortUrl("https://example.com")).rejects.toThrow(
-      "connection refused",
-    );
-  });
+    expect(createShortUrl('https://example.com')).rejects.toThrow('connection refused')
+  })
 
-  it("inserts with the supplied customAlias and skips the generator", async () => {
+  it('inserts with the supplied customAlias and skips the generator', async () => {
     const entry = {
       id: 3,
-      shortCode: "myLink",
-      originalUrl: "https://example.com",
+      shortCode: 'myLink',
+      originalUrl: 'https://example.com',
       createdAt: new Date(),
-    };
-    create.mockResolvedValueOnce(entry);
+    }
+    create.mockResolvedValueOnce(entry)
 
-    const result = await createShortUrl("https://example.com", "myLink");
+    const result = await createShortUrl('https://example.com', 'myLink')
 
-    expect(result).toEqual(entry);
-    expect(generateShortCode).not.toHaveBeenCalled();
-    expect(create).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(entry)
+    expect(generateShortCode).not.toHaveBeenCalled()
+    expect(create).toHaveBeenCalledTimes(1)
     expect(create).toHaveBeenCalledWith({
-      data: { shortCode: "myLink", originalUrl: "https://example.com" },
-    });
-  });
+      data: { shortCode: 'myLink', originalUrl: 'https://example.com' },
+    })
+  })
 
-  it("throws AliasTakenError on a P2002 collision when a customAlias is supplied (no retry)", async () => {
-    create.mockRejectedValueOnce(makeCollisionError());
+  it('throws AliasTakenError on a P2002 collision when a customAlias is supplied (no retry)', async () => {
+    create.mockRejectedValueOnce(makeCollisionError())
 
-    expect(
-      createShortUrl("https://example.com", "myLink"),
-    ).rejects.toBeInstanceOf(AliasTakenError);
-    expect(generateShortCode).not.toHaveBeenCalled();
-  });
+    expect(createShortUrl('https://example.com', 'myLink')).rejects.toBeInstanceOf(AliasTakenError)
+    expect(generateShortCode).not.toHaveBeenCalled()
+  })
 
-  it("rethrows non-collision errors when a customAlias is supplied", async () => {
-    create.mockRejectedValueOnce(new Error("connection refused"));
+  it('rethrows non-collision errors when a customAlias is supplied', async () => {
+    create.mockRejectedValueOnce(new Error('connection refused'))
 
-    expect(
-      createShortUrl("https://example.com", "myLink"),
-    ).rejects.toThrow("connection refused");
-  });
-});
+    expect(createShortUrl('https://example.com', 'myLink')).rejects.toThrow('connection refused')
+  })
+})
