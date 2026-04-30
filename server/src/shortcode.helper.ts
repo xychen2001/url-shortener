@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
 
-// .toString() only allow up to Base 36 (numbers + lowercase alphabets)
-// Indexing CHARACTERS allows us to include uppercase alphabets (BASE 62)
+//BASE 62
 const CHARACTERS =
   "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SHORTCODE_LENGTH = 8;
 
+//Using randomBytes() is more secure than Math.random()
 export function generateShortCode(): string {
   const bytes = randomBytes(SHORTCODE_LENGTH);
   let shortCode = "";
