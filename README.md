@@ -149,7 +149,7 @@ bun dev
 **Read path** (`GET /:shortCode`)
 
 1. **User** clicks or pastes a short link (e.g. `http://localhost:3000/abc123`) into the browser.
-2. Controller validates the param with Zod. Invalid format → `302` redirect to the client with `?notFound=<code>` → the home page reads the query param and shows a "Short URL '<code>' was not found" banner so the user can try again.
+2. Controller validates the param with Zod. Invalid format → `302` redirect to the client with `?notFound=<code>` → the home page reads the query param and shows a `Short URL '<code>' was not found` banner so the user can try again.
 3. Service checks Redis first:
    - **Hit** — return the cached `originalUrl` immediately.
    - **Negative hit** — short-circuit to "not found" without touching Postgres.
