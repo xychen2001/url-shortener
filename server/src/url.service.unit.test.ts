@@ -61,7 +61,11 @@ describe('getOriginalUrl', () => {
       where: { shortCode: 'abcd1234' },
       select: { shortCode: true, originalUrl: true },
     })
-    expect(redisSetex).toHaveBeenCalledWith('url:abcd1234', expect.any(Number), 'https://example.com')
+    expect(redisSetex).toHaveBeenCalledWith(
+      'url:abcd1234',
+      expect.any(Number),
+      'https://example.com',
+    )
     expect(result).toEqual(row)
   })
 

@@ -1,7 +1,10 @@
 {
   "name": "url-shortener",
   "private": true,
-  "workspaces": ["client", "server"],
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
     "typecheck": "bun --cwd client typecheck && bun --cwd server typecheck",
     "lint": "biome check && bun --cwd client lint",
